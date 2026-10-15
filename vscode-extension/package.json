@@ -1,0 +1,89 @@
+{
+  "name": "quick-latex",
+  "displayName": "Quick LaTeX",
+  "description": "Render a LaTeX snippet to a tightly-cropped vector image and copy it to the clipboard (PDF + PNG / SVG).",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "keywords": ["latex", "math", "equation", "clipboard"],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:latex",
+    "onLanguage:markdown",
+    "onWebviewPanel:quickLatex.preview"
+  ],
+  "contributes": {
+    "commands": [
+      { "command": "quickLatex.open", "title": "Quick LaTeX: 開く" },
+      { "command": "quickLatex.copy", "title": "Quick LaTeX: 画像をコピー" },
+      { "command": "quickLatex.copySvg", "title": "Quick LaTeX: SVGをコピー" },
+      { "command": "quickLatex.editPreamble", "title": "Quick LaTeX: プリアンブル編集" }
+    ],
+    "configuration": {
+      "title": "Quick LaTeX",
+      "properties": {
+        "quickLatex.mode": {
+          "type": "string",
+          "enum": ["display", "inline", "text"],
+          "enumDescriptions": ["数式（$\\displaystyle ... $）", "インライン（$ ... $）", "テキスト（16cm幅の段落）"],
+          "default": "display",
+          "scope": "application",
+          "description": "スクラッチ／選択範囲を描画するときの既定モード。"
+        },
+        "quickLatex.color": {
+          "type": "string",
+          "default": "000000",
+          "pattern": "^#?[0-9a-fA-F]{6}$",
+          "scope": "application",
+          "description": "文字色（sRGB の 16 進 RRGGBB）。"
+        },
+        "quickLatex.fontSize": {
+          "type": "number",
+          "default": 20,
+          "minimum": 4,
+          "maximum": 200,
+          "scope": "application",
+          "description": "出力の文字サイズ（pt）。TeX の基準 10pt に対する倍率で拡縮します。"
+        },
+        "quickLatex.padding": {
+          "type": "number",
+          "default": 2,
+          "minimum": 0,
+          "maximum": 100,
+          "scope": "application",
+          "description": "出力画像の余白（pt）。"
+        },
+        "quickLatex.binaryPath": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Quick LaTeX エンジン（CLI）のパス。空欄で拡張に同梱のバイナリを使います。"
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "quickLatex.copy",
+        "key": "cmd+enter",
+        "when": "editorTextFocus && quickLatex.scratchFocused"
+      },
+      {
+        "command": "quickLatex.copy",
+        "key": "cmd+enter",
+        "when": "activeWebviewPanelId == 'quickLatex.preview'"
+      },
+      {
+        "command": "quickLatex.copy",
+        "key": "cmd+alt+enter",
+        "when": "editorTextFocus && editorLangId =~ /^(latex|markdown)$/ && !quickLatex.scratchFocused"
+      },
+      {
+        "command": "quickLatex.copySvg",
+        "key": "shift+cmd+enter",
+        "when": "editorTextFocus && quickLatex.scratchFocused"
+      }
+    ]
+  }
+}
