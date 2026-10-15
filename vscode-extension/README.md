@@ -41,11 +41,29 @@ scratch.tex には `\documentclass` がなく、ワークスペース外にあ�
 `latex.autoBuild.run` を `onSave` にしている場合のみ、保存時に「現在のルートファイル」がビルドされることがあります。その場合は
 `latex-workshop.latex.autoBuild.onSave.files.ignore` に `**/QuickLaTeX/scratch.tex` を追加してください。
 
-## インストール（リポジトリのルートで）
+## インストール
+
+### ビルド済みの拡張を入れる（TeX Live と VS Code だけ）
+
+Swift も Node.js も不要です（macOS 14 以降、Apple Silicon / Intel）。
 
 ```fish
-./build.sh vscode
+curl -LO https://github.com/mioupa/quick_latex/releases/latest/download/quick-latex.vsix
+code --install-extension quick-latex.vsix
 ```
 
-アプリのビルド → バイナリを `bin/` へコピーして ad-hoc 署名 → vsix 作成 → `code --install-extension` まで行います。
+その後 VS Code のウィンドウをリロード（「Developer: Reload Window」）します。
+ブラウザで [Releases](https://github.com/mioupa/quick_latex/releases) から `.vsix` をダウンロードして「拡張機能: VSIX からのインストール…」で入れても構いません（同梱エンジンの隔離フラグは拡張が起動時に自分で外します）。
+
+必要なもの: TeX Live（`uplatex` / `dvipdfmx`。MacTeX の `/Library/TeX/texbin` は自動検出）。補完用に LaTeX Workshop を推奨。
+更新も同じコマンドを再実行します。
+
+### ソースからビルドして入れる（リポジトリのルートで）
+
+```fish
+./build.sh vscode     # このマシン向けにビルドして vsix を作成し、そのままインストール
+./build.sh release    # 配布用 universal vsix（build/quick-latex.vsix）を作成。Xcode 本体が必要、インストールはしない
+```
+
+アプリのビルド → バイナリを `bin/` へコピーして ad-hoc 署名 → vsix 作成 → `code --install-extension` まで行います（`release` は universal ビルドと vsix 作成のみ）。
 インストール後は VS Code のウィンドウをリロード（「Developer: Reload Window」）してください。

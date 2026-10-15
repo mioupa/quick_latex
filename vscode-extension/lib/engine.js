@@ -14,18 +14,33 @@ class Engine {
     this.context = context;
     this.tmpDir = context.globalStorageUri.fsPath;
     fs.mkdirSync(this.tmpDir, { recursive: true });
-    this.ensureExecutable();
+    this.bundled = path.join(context.extensionPath, 'bin', 'quicklatex');
+    /** Resolves once the bundled binary is executable and un-quarantined (never rejects). */
+    this.ready = this.prepareBundled();
   }
 
   binaryPath() {
     const override = String(vscode.workspace.getConfiguration('quickLatex').get('binaryPath') || '').trim();
     if (override) return override.replace(/^~(?=$|\/)/, os.homedir());
-    return path.join(this.context.extensionPath, 'bin', 'quicklatex');
+    return this.bundled;
   }
 
-  /** vsix extraction may drop the executable bit. */
-  ensureExecutable() {
-    try { fs.chmodSync(path.join(this.context.extensionPath, 'bin', 'quicklatex'), 0o755); } catch { /* not bundled */ }
+  /** Wait for the bundled binary to be prepared, but only when it is the one being run. */
+  async whenUsable() {
+    if (this.binaryPath() === this.bundled) await this.ready;
+  }
+
+  /**
+   * vsix extraction may drop the executable bit, and a vsix downloaded in a browser may leave the
+   * binary quarantined (Gatekeeper would then refuse to run it): chmod 755, then strip com.apple.quarantine.
+   * Only ever applied to the bundled binary, never to a user-set `quickLatex.binaryPath`.
+   */
+  async prepareBundled() {
+    try { fs.chmodSync(this.bundled, 0o755); } catch { return; }          // not bundled (e.g. development checkout)
+    await new Promise((resolve) => {
+      // Fails when the attribute is absent (the normal case): ignore errors.
+      cp.execFile('/usr/bin/xattr', ['-d', 'com.apple.quarantine', this.bundled], () => resolve());
+    });
   }
 
   /**
@@ -37,6 +52,7 @@ class Engine {
    *        render can kill this one
    */
   async render(job, slot) {
+    await this.whenUsable();
     const id = `${process.pid}-${++counter}`;
     const srcFile = path.join(this.tmpDir, `src-${id}.tex`);
     const pngFile = job.png ? path.join(this.tmpDir, `out-${id}.png`) : null;
@@ -71,6 +87,7 @@ class Engine {
   /** Ensure ~/Library/Application Support/QuickLaTeX/preamble.tex exists and return its path. */
   async ensurePreamble() {
     const { preamblePath } = require('./paths');
+    await this.whenUsable();
     try {
       const out = await new Promise((resolve, reject) => {
         cp.execFile(this.binaryPath(), ['--print-preamble-path'], { timeout: 15000 }, (err, stdout) =>

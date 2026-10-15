@@ -5,11 +5,34 @@ LaTeX の数式・テキストを、余白を詰めたベクター画像（PDF�
 
 ## 必要なもの
 
-- macOS 14 以降 / Swift（Xcode）
+- macOS 14 以降（Apple Silicon / Intel）。ソースからビルドする場合は加えて Swift（Xcode または Command Line Tools）
 - TeX Live（`uplatex` と `dvipdfmx`）。自動検出の順序: `/Library/TeX/texbin` → `/usr/local/texlive/<最新年>/bin/*` → `/usr/local/bin` → `/opt/homebrew/bin` → ログインシェルの `command -v uplatex`。見つからない場合は歯車メニューで TeX bin のパスを指定します。
 - 任意: `pdftocairo`（poppler。SVG 出力が高速で日本語もパスのまま出力されます）、`dvisvgm`
 
 ## ビルドとインストール
+
+### ビルド済みの拡張を入れる（TeX Live と VS Code だけ）
+
+Swift も Node.js も不要です。VS Code 拡張（エンジンの CLI を同梱。Apple Silicon / Intel 両対応）をそのまま入れます。
+
+```fish
+curl -LO https://github.com/mioupa/quick_latex/releases/latest/download/quick-latex.vsix
+code --install-extension quick-latex.vsix
+```
+
+そのあと VS Code のウィンドウをリロード（コマンドパレット →「Developer: Reload Window」）します。`code` コマンドがない場合は、コマンドパレット →「Shell Command: Install 'code' command in PATH」を先に実行してください。
+
+別の方法: [Releases ページ](https://github.com/mioupa/quick_latex/releases) からブラウザで `quick-latex.vsix` をダウンロードし、VS Code の「拡張機能: VSIX からのインストール…」で選びます（ブラウザ経由で付く隔離フラグは、拡張が同梱エンジンから自分で外します）。
+
+必要なもの:
+
+- macOS 14 以降（Apple Silicon / Intel）
+- TeX Live（`uplatex` / `dvipdfmx`。MacTeX の `/Library/TeX/texbin` は自動検出されます）
+- 補完用に LaTeX Workshop（`james-yu.latex-workshop`）を推奨
+
+更新するときも同じコマンドを再実行します（`--install-extension` は上書きされます。その後リロード）。
+
+### ソースからビルドする
 
 ```fish
 ./build.sh            # build/QuickLaTeX.app を作成（ad-hoc 署名）
@@ -17,7 +40,7 @@ LaTeX の数式・テキストを、余白を詰めたベクター画像（PDF�
 open build/QuickLaTeX.app
 ```
 
-### 別の Mac に入れる
+### 別の Mac にソースから入れる
 
 各マシンでソースからビルドします（そのマシンの CPU 向けにビルドされ、Gatekeeper にも引っかかりません）。
 
@@ -98,9 +121,16 @@ $Q --source-file /tmp/eq.tex --json --png /tmp/eq.png
 
 ```fish
 ./build.sh vscode    # アプリをビルド → バイナリを同梱して署名 → vsix を作成 → code --install-extension
+./build.sh release   # 配布用: universal（arm64 + x86_64）の vsix を build/quick-latex.vsix に作成（インストールはしない）
 ```
 
 インストール後は VS Code のウィンドウをリロードしてください。使い方は `vscode-extension/README.md` を参照。
+
+`./build.sh release` は universal ビルドのため **Xcode 本体が必要**です（Command Line Tools だけでは作れません。`xcode-select -s /Applications/Xcode.app/Contents/Developer`）。それ以外のモードは Command Line Tools だけで動きます。vsix のファイル名はバージョンなし（`quick-latex.vsix`）なので、GitHub Releases に同名で添付すれば `https://github.com/mioupa/quick_latex/releases/latest/download/quick-latex.vsix` が常に最新を指します。
+
+```fish
+./build.sh release; and gh release create v0.1.0 build/quick-latex.vsix --title "Quick LaTeX v0.1.0" --notes "VS Code extension (universal)"
+```
 
 ## メモ・制限
 
@@ -108,4 +138,5 @@ $Q --source-file /tmp/eq.tex --json --png /tmp/eq.png
 - SVG は `pdftocairo` があれば PDF から変換（日本語もパス化されます）。なければ `dvisvgm --no-fonts` にフォールバックしますが、約 1.5 秒かかり、日本語フォントは埋め込めません（日本語が欠けることがあります）。
 - キャッシュは `~/Library/Caches/QuickLaTeX/` にあります（削除しても自動で再生成されます）。
 - 設定は UserDefaults（`local.quicklatex`）に保存されます（プリアンブルだけは共有ファイル）。
-- 署名は ad-hoc です。別のマシンへコピーした場合は初回に右クリックから開く必要があります。
+- 署名は ad-hoc です。別のマシンへコピーした場合は初回に右クリックから開く必要があります（vsix 内のエンジンは拡張が起動時に隔離フラグを外します）。
+- `./build.sh` が `Could not initialize build system ... Unknown error parsing property list` で失敗する場合: Swift 6.4 の新しいビルドバックエンドの問題です。`build.sh` は自動で 1 回だけ `swift build --build-system native` にフォールバックして再実行します（「deprecated」の警告が出ますが問題ありません）。

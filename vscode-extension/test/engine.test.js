@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const cp = require('child_process');
 const Module = require('module');
 
 const settings = { binaryPath: '' };
@@ -89,6 +90,54 @@ const base = { mode: 'display', color: '1F4FD8', size: 20, padding: 2 };
     const p = await engine.ensurePreamble();
     assert.equal(p, path.join(os.homedir(), 'Library', 'Application Support', 'QuickLaTeX', 'preamble.tex'));
     assert.ok(fs.existsSync(p));
+  });
+
+  const hasQuarantine = (file) => {
+    try { cp.execFileSync('/usr/bin/xattr', ['-p', 'com.apple.quarantine', file], { stdio: 'pipe' }); return true; } catch { return false; }
+  };
+  const quarantine = (file) => cp.execFileSync('/usr/bin/xattr', ['-w', 'com.apple.quarantine', '0081;00000000;Safari;', file]);
+
+  await test('activation strips com.apple.quarantine from the bundled binary (and chmods it) before the first run', async () => {
+    const extQ = path.join(tmp, 'ext-quarantined');
+    fs.mkdirSync(path.join(extQ, 'bin'), { recursive: true });
+    const copy = path.join(extQ, 'bin', 'quicklatex');
+    fs.copyFileSync(path.join(extensionPath, 'bin', 'quicklatex'), copy);
+    fs.chmodSync(copy, 0o644);                       // as if the vsix extraction dropped the executable bit
+    quarantine(copy);
+    assert.ok(hasQuarantine(copy), 'precondition: quarantined');
+
+    const e = new Engine({ extensionPath: extQ, globalStorageUri: { fsPath: path.join(tmp, 'storage-q') } });
+    await e.ready;
+    assert.equal(hasQuarantine(copy), false, 'quarantine removed');
+    assert.equal(fs.statSync(copy).mode & 0o777, 0o755);
+    const r = await e.render({ ...base, source: 'x^2' });      // first CLI invocation only after the removal
+    assert.equal(r.ok, true, JSON.stringify(r));
+  });
+
+  await test('render waits for the quarantine removal (no race with the first invocation)', async () => {
+    const extQ = path.join(tmp, 'ext-quarantined2');
+    fs.mkdirSync(path.join(extQ, 'bin'), { recursive: true });
+    const copy = path.join(extQ, 'bin', 'quicklatex');
+    fs.copyFileSync(path.join(extensionPath, 'bin', 'quicklatex'), copy);
+    quarantine(copy);
+    const e = new Engine({ extensionPath: extQ, globalStorageUri: { fsPath: path.join(tmp, 'storage-q2') } });
+    // No explicit wait on e.ready: render() itself must not start the binary while it is still quarantined.
+    const r = await e.render({ ...base, source: 'y^2' });
+    assert.equal(r.ok, true, JSON.stringify(r));
+    assert.equal(hasQuarantine(copy), false);
+  });
+
+  await test('a user-set binaryPath is never touched (quarantine attribute stays)', async () => {
+    const userBin = path.join(tmp, 'user-engine.txt');      // not executable on purpose: nothing quarantined gets run
+    fs.writeFileSync(userBin, 'not a program\n');
+    quarantine(userBin);
+    settings.binaryPath = userBin;
+    const e = new Engine({ extensionPath, globalStorageUri: { fsPath: path.join(tmp, 'storage-u') } });
+    await e.ready;
+    const r = await e.render({ ...base, source: 'x' });
+    settings.binaryPath = '';
+    assert.equal(r.ok, false);
+    assert.ok(hasQuarantine(userBin), 'user binary keeps its attribute');
   });
 
   fs.rmSync(tmp, { recursive: true, force: true });
