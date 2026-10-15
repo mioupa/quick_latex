@@ -35,6 +35,8 @@ cd quick_latex
 open ~/Applications/QuickLaTeX.app
 ```
 
+VS Code 拡張だけでよい場合は `./build.sh install` と `open` を省き、`./build.sh vscode` だけを実行します（拡張にエンジンが同梱されるので、アプリのインストールは不要です）。
+
 更新するときは `git pull` してから同じコマンドを再実行します。プリアンブル（`~/Library/Application Support/QuickLaTeX/preamble.tex`）はマシンごとの設定なので、揃えたい場合はこのファイルをコピーしてください。
 
 ## 使い方
